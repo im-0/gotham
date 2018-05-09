@@ -69,11 +69,14 @@ where
         threads,
     );
 
-    for _ in 0..threads - 1 {
+    for thread_n in 0..threads - 1 {
         let protocol = protocol.clone();
         let queue = queue.clone();
         let new_handler = new_handler.clone();
-        thread::spawn(move || start_serve_core(queue, &protocol, new_handler));
+        thread::Builder::new()
+            .name(format!("gotham-{}", thread_n))
+            .spawn(move || start_serve_core(queue, &protocol, new_handler))
+            .expect("unable to spawn thread");
     }
 
     start_serve_core(queue, &protocol, new_handler);
