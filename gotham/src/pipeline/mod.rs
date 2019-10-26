@@ -4,12 +4,13 @@ pub mod chain;
 pub mod set;
 pub mod single;
 
+use log::trace;
 use std::io;
 
-use handler::HandlerFuture;
-use middleware::chain::{MiddlewareChain, NewMiddlewareChain};
-use middleware::NewMiddleware;
-use state::{request_id, State};
+use crate::handler::HandlerFuture;
+use crate::middleware::chain::{MiddlewareChain, NewMiddlewareChain};
+use crate::middleware::NewMiddleware;
+use crate::state::{request_id, State};
 
 /// When using middleware, one or more `Middleware` are combined to form a `Pipeline`.
 /// `Middleware` are invoked strictly in the order they're added to the `Pipeline`.
@@ -35,7 +36,7 @@ use state::{request_id, State};
 /// # use gotham::pipeline::single::*;
 /// # use gotham::router::builder::*;
 /// # use gotham::test::TestServer;
-/// # use hyper::{Response, StatusCode};
+/// # use hyper::{Body, Response, StatusCode};
 /// #
 /// #[derive(StateData)]
 /// struct MiddlewareData {
@@ -84,15 +85,16 @@ use state::{request_id, State};
 /// #     }
 /// }
 ///
-/// fn handler(state: State) -> (State, Response) {
+/// fn handler(state: State) -> (State, Response<Body>) {
 ///     let body = {
 ///        let data = state.borrow::<MiddlewareData>();
 ///        format!("{:?}", data.vec)
 ///     };
 ///
 ///     let res = create_response(&state,
-///                               StatusCode::Ok,
-///                               Some((body.into_bytes(), mime::TEXT_PLAIN)));
+///                               StatusCode::OK,
+///                               mime::TEXT_PLAIN,
+///                               body);
 ///
 ///     (state, res)
 /// }
@@ -112,7 +114,7 @@ use state::{request_id, State};
 ///
 ///     let test_server = TestServer::new(router).unwrap();
 ///     let response = test_server.client().get("http://example.com/").perform().unwrap();
-///     assert_eq!(response.status(), StatusCode::Ok);
+///     assert_eq!(response.status(), StatusCode::OK);
 ///     assert_eq!(response.read_utf8_body().unwrap(), "[1, 2, 3]");
 /// }
 /// ```
@@ -166,6 +168,15 @@ pub fn new_pipeline() -> PipelineBuilder<()> {
     trace!(" starting pipeline construction");
     // See: `impl NewMiddlewareChain for ()`
     PipelineBuilder { t: () }
+}
+
+/// Constructs a pipeline from a single middleware.
+pub fn single_middleware<M>(m: M) -> Pipeline<(M, ())>
+where
+    M: NewMiddleware,
+    M::Instance: Send + 'static,
+{
+    new_pipeline().add(m).build()
 }
 
 /// Allows a pipeline to be defined by adding `NewMiddleware` values, and building a `Pipeline`.
@@ -277,20 +288,21 @@ mod tests {
     use super::*;
 
     use futures::future;
-    use hyper::{Response, StatusCode};
+    use hyper::{Body, Response, StatusCode};
 
-    use handler::{Handler, IntoHandlerError};
-    use middleware::Middleware;
-    use state::StateData;
-    use test::TestServer;
+    use crate::handler::{Handler, IntoHandlerError};
+    use crate::middleware::Middleware;
+    use crate::state::StateData;
+    use crate::test::TestServer;
 
-    fn handler(state: State) -> (State, Response) {
+    fn handler(state: State) -> (State, Response<Body>) {
         let number = state.borrow::<Number>().value;
         (
             state,
-            Response::new()
-                .with_status(StatusCode::Ok)
-                .with_body(format!("{}", number)),
+            Response::builder()
+                .status(StatusCode::OK)
+                .body(format!("{}", number).into())
+                .unwrap(),
         )
     }
 
@@ -383,7 +395,8 @@ mod tests {
                 Ok(p) => p.call(state, |state| handler.handle(state)),
                 Err(e) => Box::new(future::err((state, e.into_handler_error()))),
             })
-        }).unwrap();
+        })
+        .unwrap();
 
         let response = test_server
             .client()
@@ -392,6 +405,6 @@ mod tests {
             .unwrap();
 
         let buf = response.read_body().unwrap();
-        assert_eq!(buf.as_slice(), "24".as_bytes());
+        assert_eq!(buf.as_slice(), b"24");
     }
 }

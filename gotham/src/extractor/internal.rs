@@ -7,11 +7,14 @@ use std::fmt::{self, Display};
 use std::marker::PhantomData;
 use std::str::FromStr;
 
-use serde::de::{self, Deserialize, DeserializeSeed, Deserializer, EnumAccess, MapAccess,
-                SeqAccess, VariantAccess, Visitor};
+use serde::de::{
+    self, Deserialize, DeserializeSeed, Deserializer, EnumAccess, MapAccess, SeqAccess,
+    VariantAccess, Visitor,
+};
+use serde::forward_to_deserialize_any;
 
-use helpers::http::request::query_string::QueryStringMapping;
-use router::tree::SegmentMapping;
+use crate::helpers::http::request::query_string::QueryStringMapping;
+use crate::router::tree::segment::SegmentMapping;
 
 /// Describes the error cases which can result from deserializing a `ExtractorDeserializer` into a
 /// `PathExtractor` provided by the application.
@@ -372,7 +375,7 @@ where
     phantom: PhantomData<&'a str>,
 }
 
-fn convert_to_string_ref<'a, T>(t: &'a T) -> &'a str
+fn convert_to_string_ref<T>(t: &T) -> &str
 where
     T: AsRef<str> + ?Sized,
 {
@@ -700,7 +703,8 @@ impl<'de> VariantAccess<'de> for UnitVariant {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use helpers::http::{FormUrlDecoded, PercentDecoded};
+    use crate::helpers::http::{FormUrlDecoded, PercentDecoded};
+    use serde_derive::Deserialize;
     use std;
 
     #[derive(Deserialize)]
@@ -761,11 +765,11 @@ mod tests {
         assert_eq!(p.i8_val, 15);
         assert_eq!(p.i16_val, 511);
         assert_eq!(p.i32_val, 90000);
-        assert_eq!(p.i64_val, 3000000000);
+        assert_eq!(p.i64_val, 3_000_000_000);
         assert_eq!(p.u8_val, 215);
         assert_eq!(p.u16_val, 40511);
-        assert_eq!(p.u32_val, 4000000000);
-        assert_eq!(p.u64_val, 9000000000);
+        assert_eq!(p.u32_val, 4_000_000_000);
+        assert_eq!(p.u64_val, 9_000_000_000);
         assert!((p.f32_val - 1.4).abs() < std::f32::EPSILON);
         assert!((p.f64_val - 2.6).abs() < std::f64::EPSILON);
         assert_eq!(p.string_val, "this is an owned string");
@@ -840,11 +844,11 @@ mod tests {
         assert_eq!(p.i8_val, 15);
         assert_eq!(p.i16_val, 511);
         assert_eq!(p.i32_val, 90000);
-        assert_eq!(p.i64_val, 3000000000);
+        assert_eq!(p.i64_val, 3_000_000_000);
         assert_eq!(p.u8_val, 215);
         assert_eq!(p.u16_val, 40511);
-        assert_eq!(p.u32_val, 4000000000);
-        assert_eq!(p.u64_val, 9000000000);
+        assert_eq!(p.u32_val, 4_000_000_000);
+        assert_eq!(p.u64_val, 9_000_000_000);
         assert!((p.f32_val - 1.4).abs() < std::f32::EPSILON);
         assert!((p.f64_val - 2.6).abs() < std::f64::EPSILON);
         assert_eq!(p.string_val, "this is an owned string");

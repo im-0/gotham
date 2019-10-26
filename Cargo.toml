@@ -7,13 +7,20 @@ members = [
 
     ## Middleware
     "middleware/template",
-    "middleware/under_development/diesel",
+    "middleware/diesel",
+    "middleware/jwt",
 
     ## Examples (these crates are not published)
     "examples/hello_world",
+    "examples/hello_world_tls",
+    "examples/hello_world_until",
+    "examples/shared_state",
 
     # Tera template
     "examples/templating/tera",
+
+    # Askama template
+    "examples/templating/askama",
 
     # routing
     "examples/routing/introduction",
@@ -41,6 +48,7 @@ members = [
 
     # middleware
     "examples/middleware/introduction",
+    "examples/middleware/multiple_pipelines",
 
     # into_response
     "examples/into_response/introduction",
@@ -49,10 +57,23 @@ members = [
     "examples/handlers/request_data",
     "examples/handlers/stateful",
     "examples/handlers/simple_async_handlers",
-    # "examples/handlers/async_handlers",
+    "examples/handlers/async_handlers",
+    "examples/handlers/form_urlencoded",
+    "examples/handlers/multipart",
+
+    # static_assets
+    "examples/static_assets",
+
+    # diesel
+    "examples/diesel",
+
+    # openssl
+    "examples/openssl",
 
     # example_contribution_template
-    "examples/example_contribution_template/name"
+    "examples/example_contribution_template/name",
+
+    "examples/websocket",
 ]
 
 [patch.crates-io]

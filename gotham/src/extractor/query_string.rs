@@ -1,8 +1,8 @@
-use hyper::Response;
+use hyper::{body::Payload, Body, Response};
 use serde::{Deserialize, Deserializer};
 
-use router::response::extender::StaticResponseExtender;
-use state::{State, StateData};
+use crate::router::response::extender::StaticResponseExtender;
+use crate::state::{State, StateData};
 
 /// Defines a binding for storing the query parameters from the `Request` URI in `State`. On
 /// failure the `StaticResponseExtender` implementation extends the `Response` to indicate why the
@@ -28,7 +28,7 @@ use state::{State, StateData};
 /// # #[macro_use]
 /// # extern crate serde_derive;
 /// #
-/// # use hyper::{Response, StatusCode};
+/// # use hyper::{Body, Response, StatusCode};
 /// # use gotham::state::{FromState, State};
 /// # use gotham::helpers::http::response::create_response;
 /// # use gotham::router::Router;
@@ -49,14 +49,15 @@ use state::{State, StateData};
 ///     C,
 /// }
 ///
-/// fn handler(state: State) -> (State, Response) {
+/// fn handler(state: State) -> (State, Response<Body>) {
 ///     let &MyQueryParams { x, y } = MyQueryParams::borrow_from(&state);
 ///     let body = format!("x = {}, y = {:?}", x, y);
 ///
 ///     let response = create_response(
 ///         &state,
-///         StatusCode::Ok,
-///         Some((body.into_bytes(), mime::TEXT_PLAIN)),
+///         StatusCode::OK,
+///         mime::TEXT_PLAIN,
+///         body,
 ///     );
 ///
 ///     (state, response)
@@ -78,18 +79,21 @@ use state::{State, StateData};
 /// #       .get("http://example.com/test?x=15&y=b")
 /// #       .perform()
 /// #       .unwrap();
-/// #   assert_eq!(response.status(), StatusCode::Ok);
+/// #   assert_eq!(response.status(), StatusCode::OK);
 /// #   let body = response.read_utf8_body().unwrap();
 /// #   assert_eq!(body, "x = 15, y = B");
 /// # }
-pub trait QueryStringExtractor:
-    for<'de> Deserialize<'de> + StaticResponseExtender + StateData
+pub trait QueryStringExtractor<B>:
+    for<'de> Deserialize<'de> + StaticResponseExtender<ResBody = B> + StateData
+where
+    B: Payload,
 {
 }
 
-impl<T> QueryStringExtractor for T
+impl<T, B> QueryStringExtractor<B> for T
 where
-    for<'de> T: Deserialize<'de> + StaticResponseExtender + StateData,
+    B: Payload,
+    for<'de> T: Deserialize<'de> + StaticResponseExtender<ResBody = B> + StateData,
 {
 }
 
@@ -116,5 +120,6 @@ impl<'de> Deserialize<'de> for NoopQueryStringExtractor {
 impl StateData for NoopQueryStringExtractor {}
 
 impl StaticResponseExtender for NoopQueryStringExtractor {
-    fn extend(_state: &mut State, _res: &mut Response) {}
+    type ResBody = Body;
+    fn extend(_state: &mut State, _res: &mut Response<Body>) {}
 }

@@ -8,35 +8,25 @@ extern crate lazy_static;
 #[macro_use]
 extern crate tera;
 
-use hyper::{Response, StatusCode};
-
-use gotham::helpers::http::response::create_response;
 use gotham::state::State;
 use tera::{Context, Tera};
 
-/// Assuming the Rust file is at the same level as the templates folder
-/// we can get a Tera instance that way:
+// Assuming the Rust file is at the same level as the templates folder
+// we can get a Tera instance that way:
 lazy_static! {
-    pub static ref TERA: Tera = {
-        compile_templates!(concat!(env!("CARGO_MANIFEST_DIR"), "/templates/**/*"))
-    };
+    pub static ref TERA: Tera =
+        compile_templates!(concat!(env!("CARGO_MANIFEST_DIR"), "/templates/**/*"));
 }
 
 /// Create a `Handler` which calls the Tera static reference, renders
 /// a template with a given Context, and returns the result as a String
 /// to be used as Response Body
-pub fn say_hello(state: State) -> (State, Response) {
+pub fn say_hello(state: State) -> (State, (mime::Mime, String)) {
     let mut context = Context::new();
-    context.add("user", "Gotham");
+    context.insert("user", "Gotham");
     let rendered = TERA.render("example.html.tera", &context).unwrap();
 
-    let res = create_response(
-        &state,
-        StatusCode::Ok,
-        Some((rendered.into_bytes(), mime::TEXT_HTML)),
-    );
-
-    (state, res)
+    (state, (mime::TEXT_HTML, rendered))
 }
 
 /// Start a server and call the `Handler` we've defined above for each `Request` we receive.
@@ -51,6 +41,7 @@ pub fn main() {
 mod tests {
     use super::*;
     use gotham::test::TestServer;
+    use hyper::StatusCode;
 
     #[test]
     fn receive_hello_world_response() {
@@ -61,12 +52,14 @@ mod tests {
             .perform()
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::Ok);
+        assert_eq!(response.status(), StatusCode::OK);
 
         let body = response.read_body().unwrap();
-        let expected_body = concat!("<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"utf-8\" />\n"
-                                    ,"  <title>Gotham Tera example</title>\n</head>\n<body>\n"
-                                    ,"  <h1>Hello Gotham!</h1>\n</body>\n</html>\n");
+        let expected_body = concat!(
+            "<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"utf-8\" />\n",
+            "  <title>Gotham Tera example</title>\n</head>\n<body>\n",
+            "  <h1>Hello Gotham!</h1>\n</body>\n</html>\n"
+        );
         assert_eq!(body, expected_body.as_bytes());
     }
 }

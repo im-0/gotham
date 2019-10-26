@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use helpers::http::{form_url_decode, FormUrlDecoded};
+use crate::helpers::http::{form_url_decode, FormUrlDecoded};
 
 /// Provides a mapping of keys from `Request` query string to their supplied values
 pub(crate) type QueryStringMapping = HashMap<String, Vec<FormUrlDecoded>>;
@@ -17,7 +17,7 @@ pub(crate) fn split<'r>(query: Option<&'r str>) -> QueryStringMapping {
     let mut query_string_mapping = QueryStringMapping::new();
 
     if let Some(query) = query {
-        let pairs = query.split(is_separator).filter(|pair| pair.contains("="));
+        let pairs = query.split(is_separator).filter(|pair| pair.contains('='));
 
         for p in pairs {
             let mut sp = p.splitn(2, '=');
@@ -44,9 +44,10 @@ mod tests {
     use super::*;
 
     fn to_pairs<'a>(qsm: &'a QueryStringMapping) -> Vec<(&'a str, Vec<&'a str>)> {
-        let mut pairs: Vec<(&str, Vec<&str>)> = qsm.iter()
+        let mut pairs: Vec<(&str, Vec<&str>)> = qsm
+            .iter()
             .map(|(k, v)| {
-                let mut values: Vec<&str> = v.iter().map(|s| s.as_ref()).collect();
+                let mut values: Vec<&str> = v.iter().map(AsRef::as_ref).collect();
                 values.sort();
 
                 (k.as_str(), values)

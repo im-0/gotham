@@ -25,7 +25,7 @@ use gotham::state::{FromState, State};
 
 use tokio::timer::Delay;
 
-type SleepFuture = Box<Future<Item = Vec<u8>, Error = HandlerError> + Send>;
+type SleepFuture = Box<dyn Future<Item = Vec<u8>, Error = HandlerError> + Send>;
 
 #[derive(Deserialize, StateData, StaticResponseExtender)]
 struct QueryStringExtractor {
@@ -34,12 +34,12 @@ struct QueryStringExtractor {
 
 /// Sneaky hack to make tests take less time. Nothing to see here ;-).
 #[cfg(not(test))]
-fn get_duration(seconds: &u64) -> Duration {
-    Duration::from_secs(seconds.to_owned())
+fn get_duration(seconds: u64) -> Duration {
+    Duration::from_secs(seconds)
 }
 #[cfg(test)]
-fn get_duration(seconds: &u64) -> Duration {
-    Duration::from_millis(seconds.to_owned())
+fn get_duration(seconds: u64) -> Duration {
+    Duration::from_millis(seconds)
 }
 /// All this function does is return a future that resolves after a number of
 /// seconds, with a Vec<u8> that tells you how long it slept for.
@@ -56,7 +56,7 @@ fn get_duration(seconds: &u64) -> Duration {
 /// so the patterns that you learn in this example should be applicable to
 /// real world problems.
 fn sleep(seconds: u64) -> SleepFuture {
-    let when = Instant::now() + get_duration(&seconds);
+    let when = Instant::now() + get_duration(seconds);
     let delay = Delay::new(when)
         .map_err(|e| panic!("timer failed; err={:?}", e))
         .and_then(move |_| {
@@ -75,7 +75,7 @@ fn sleep_handler(mut state: State) -> Box<HandlerFuture> {
     println!("sleep for {} seconds once: starting", seconds);
 
     // Here, we call our helper function that returns a future.
-    let sleep_future = sleep(seconds.clone());
+    let sleep_future = sleep(seconds);
 
     // Here, we convert the future from `sleep()` into the form that Gotham expects.
     // We have to use .then() rather than .and_then() because we need to coerce both
@@ -85,7 +85,7 @@ fn sleep_handler(mut state: State) -> Box<HandlerFuture> {
     // IntoHandlerError.
     Box::new(sleep_future.then(move |result| match result {
         Ok(data) => {
-            let res = create_response(&state, StatusCode::Ok, Some((data, mime::TEXT_PLAIN)));
+            let res = create_response(&state, StatusCode::OK, mime::TEXT_PLAIN, data);
             println!("sleep for {} seconds once: finished", seconds);
             Ok((state, res))
         }
@@ -119,7 +119,7 @@ fn loop_handler(mut state: State) -> Box<HandlerFuture> {
     // This bit is the same as the bit in the first example.
     Box::new(sleep_future.then(move |result| match result {
         Ok(data) => {
-            let res = create_response(&state, StatusCode::Ok, Some((data, mime::TEXT_PLAIN)));
+            let res = create_response(&state, StatusCode::OK, mime::TEXT_PLAIN, data);
             println!("sleep for one second {} times: finished", seconds);
             Ok((state, res))
         }
@@ -134,12 +134,10 @@ fn router() -> Router {
             .get("/sleep")
             .with_query_string_extractor::<QueryStringExtractor>()
             .to(sleep_handler);
-        ;
         route
             .get("/loop")
             .with_query_string_extractor::<QueryStringExtractor>()
             .to(loop_handler);
-        ;
     })
 }
 
@@ -160,7 +158,7 @@ mod tests {
         let test_server = TestServer::new(router()).unwrap();
         let response = test_server.client().get(url_str).perform().unwrap();
 
-        assert_eq!(response.status(), StatusCode::Ok);
+        assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
             &String::from_utf8(response.read_body().unwrap()).unwrap(),
             expected_response
